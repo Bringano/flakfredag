@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Npgsql;
@@ -48,6 +49,55 @@ var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
 builder.WebHost.UseUrls($"http://+:{port}");
 
 var app = builder.Build();
+
+// ---------- Enkelt delat lösenordsskydd (HTTP Basic Auth) ----------
+// Ett gemensamt användarnamn/lösenord för alla — inget konto-system, ingen
+// databas för användare. Sätts via miljövariabler (APP_USERNAME/APP_PASSWORD),
+// aldrig i git. Om de inte är satta alls är skyddet avstängt (t.ex. bekvämt
+// om man kör helt lokalt utan att bry sig).
+var appUsername = Environment.GetEnvironmentVariable("APP_USERNAME");
+var appPassword = Environment.GetEnvironmentVariable("APP_PASSWORD");
+
+if (!string.IsNullOrEmpty(appUsername) && !string.IsNullOrEmpty(appPassword))
+{
+    app.Use(async (context, next) =>
+    {
+        // Renders hälsokontroll skickar ingen inloggning — måste vara öppen,
+        // annars tror Render att appen är nere och startar om den i loop.
+        if (context.Request.Path == "/api/health")
+        {
+            await next();
+            return;
+        }
+
+        var header = context.Request.Headers.Authorization.ToString();
+        if (header.StartsWith("Basic ", StringComparison.Ordinal))
+        {
+            try
+            {
+                var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(header["Basic ".Length..]));
+                var separatorIndex = decoded.IndexOf(':');
+                if (separatorIndex >= 0)
+                {
+                    var user = decoded[..separatorIndex];
+                    var pass = decoded[(separatorIndex + 1)..];
+                    if (user == appUsername && pass == appPassword)
+                    {
+                        await next();
+                        return;
+                    }
+                }
+            }
+            catch (FormatException)
+            {
+                // Ogiltig base64 — behandlas som fel inloggning nedan.
+            }
+        }
+
+        context.Response.Headers.WWWAuthenticate = "Basic realm=\"FlakFredag\"";
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+    });
+}
 
 // Kör init.sql med några återförsök — databasen kan behöva några sekunder på sig
 // att bli klar när allt startar samtidigt (t.ex. första gången i Docker Compose).

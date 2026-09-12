@@ -26,6 +26,10 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/beerapp
       PORT: 3000
       ASPNETCORE_ENVIRONMENT: Production
+      # Delat lösenordsskydd (HTTP Basic Auth). Ändra gärna lokalt om du vill
+      # testa inloggningsrutan — på Render sätts riktiga värden i dashboarden.
+      APP_USERNAME: flakfredag
+      APP_PASSWORD: olprovning
     ports:
       - "3000:3000"
 

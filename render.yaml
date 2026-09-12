@@ -17,4 +17,8 @@ services:
           property: connectionString
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+      - key: APP_USERNAME
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
     healthCheckPath: /api/health
