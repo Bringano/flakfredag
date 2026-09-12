@@ -1,4 +1,4 @@
-type Tab = "leaderboard" | "history" | "stats" | "new";
+type Tab = "leaderboard" | "history" | "stats" | "new" | "gatherings";
 
 interface NavProps {
   active: Tab;
@@ -9,7 +9,8 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "leaderboard", label: "Topplista", icon: "🏆" },
   { id: "history", label: "Historik", icon: "📜" },
   { id: "stats", label: "Personstatistik", icon: "📊" },
-  { id: "new", label: "Ny provning", icon: "➕" }
+  { id: "new", label: "Ny provning", icon: "➕" },
+  { id: "gatherings", label: "Loggbok", icon: "📖" }
 ];
 
 export default function Nav({ active, onChange }: NavProps) {

@@ -5,6 +5,7 @@ import Leaderboard from "./components/Leaderboard";
 import History from "./components/History";
 import PersonStats from "./components/PersonStats";
 import NewTastingForm from "./components/NewTastingForm";
+import Gatherings from "./components/Gatherings";
 import { api } from "./api";
 import { AuthRequiredError } from "./auth";
 import type { Beer, Tasting, PersonStat } from "./types";
@@ -87,6 +88,7 @@ export default function App({ onBack, onAuthError }: AppProps) {
           {tab === "history" && <History tastings={tastings} loading={loading} onChanged={loadAll} />}
           {tab === "stats" && <PersonStats stats={personStats} loading={loading} />}
           {tab === "new" && <NewTastingForm beers={beers} onCreated={loadAll} />}
+          {tab === "gatherings" && <Gatherings onAuthError={onAuthError} />}
         </main>
       </div>
     </div>

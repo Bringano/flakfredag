@@ -279,6 +279,104 @@ public class Db
         return true;
     }
 
+    // ---------- Gatherings (loggbok över kvällar ni träffats) ----------
+
+    public async Task<List<Gathering>> GetGatheringsAsync()
+    {
+        const string sql = """
+            SELECT g.id, g.occurred_on, g.description, g.created_at,
+                   COALESCE(array_agg(p.id ORDER BY p.id) FILTER (WHERE p.id IS NOT NULL), '{}') AS photo_ids
+            FROM gatherings g
+            LEFT JOIN gathering_photos p ON p.gathering_id = g.id
+            GROUP BY g.id
+            ORDER BY g.occurred_on DESC, g.id DESC;
+            """;
+
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        var gatherings = new List<Gathering>();
+        while (await reader.ReadAsync())
+        {
+            gatherings.Add(new Gathering(
+                reader.GetInt32(0),
+                reader.GetFieldValue<DateOnly>(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.GetDateTime(3),
+                reader.GetFieldValue<int[]>(4).ToList()
+            ));
+        }
+        return gatherings;
+    }
+
+    // Skapar en kväll + dess bilder i en transaktion.
+    public async Task<Gathering> CreateGatheringAsync(DateOnly occurredOn, string? description, List<(byte[] Data, string ContentType)> photos)
+    {
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var tx = await conn.BeginTransactionAsync();
+
+        const string insertGatheringSql = """
+            INSERT INTO gatherings (occurred_on, description) VALUES (@occurredOn, @description)
+            RETURNING id, created_at;
+            """;
+        await using var insertCmd = new NpgsqlCommand(insertGatheringSql, conn, tx);
+        insertCmd.Parameters.AddWithValue("occurredOn", occurredOn);
+        insertCmd.Parameters.AddWithValue("description", (object?)description ?? DBNull.Value);
+
+        int gatheringId;
+        DateTime createdAt;
+        await using (var reader = await insertCmd.ExecuteReaderAsync())
+        {
+            await reader.ReadAsync();
+            gatheringId = reader.GetInt32(0);
+            createdAt = reader.GetDateTime(1);
+        }
+
+        const string insertPhotoSql = """
+            INSERT INTO gathering_photos (gathering_id, content_type, data) VALUES (@gatheringId, @contentType, @data)
+            RETURNING id;
+            """;
+        var photoIds = new List<int>();
+        foreach (var (data, contentType) in photos)
+        {
+            await using var photoCmd = new NpgsqlCommand(insertPhotoSql, conn, tx);
+            photoCmd.Parameters.AddWithValue("gatheringId", gatheringId);
+            photoCmd.Parameters.AddWithValue("contentType", contentType);
+            photoCmd.Parameters.AddWithValue("data", data);
+            photoIds.Add((int)(await photoCmd.ExecuteScalarAsync())!);
+        }
+
+        await tx.CommitAsync();
+        return new Gathering(gatheringId, occurredOn, description, createdAt, photoIds);
+    }
+
+    // Hämtar en bilds rådata. Kollar att den faktiskt hör till gatheringId
+    // (annars kunde man gissa sig fram till andra bild-id:n).
+    public async Task<GatheringPhoto?> GetGatheringPhotoAsync(int gatheringId, int photoId)
+    {
+        const string sql = "SELECT content_type, data FROM gathering_photos WHERE id = @photoId AND gathering_id = @gatheringId;";
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("photoId", photoId);
+        cmd.Parameters.AddWithValue("gatheringId", gatheringId);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+            return null;
+        return new GatheringPhoto(reader.GetFieldValue<byte[]>(1), reader.GetString(0));
+    }
+
+    // Tar bort en kväll. Dess bilder försvinner automatiskt (ON DELETE CASCADE).
+    public async Task<bool> DeleteGatheringAsync(int id)
+    {
+        const string sql = "DELETE FROM gatherings WHERE id = @id;";
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("id", id);
+        return await cmd.ExecuteNonQueryAsync() > 0;
+    }
+
     // ---------- Stats ----------
 
     public async Task<List<PersonStat>> GetPersonStatsAsync()

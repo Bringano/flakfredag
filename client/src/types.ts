@@ -46,3 +46,12 @@ export interface UpdateTastingPayload {
   beerName: string;
   brewery?: string;
 }
+
+// En kväll i loggboken. occurredOn är "YYYY-MM-DD" (DateOnly på servern).
+export interface Gathering {
+  id: number;
+  occurredOn: string;
+  description: string | null;
+  createdAt: string;
+  photoIds: number[];
+}

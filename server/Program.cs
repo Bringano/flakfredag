@@ -1,11 +1,19 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http.Features;
 using Npgsql;
 using BeerApp.Api.Data;
 using BeerApp.Api.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Loggbokens bilduppladdning skickar flera komprimerade foton i samma
+// multipart-request — höj gränsen lite från standardvärdet (~28 MB) så en
+// handfull bilder får plats även om klientkomprimeringen inte tar bort allt.
+const long MaxUploadBytes = 50 * 1024 * 1024;
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = MaxUploadBytes);
+builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = MaxUploadBytes);
 
 // JSON i camelCase (matchar det React-frontenden förväntar sig, t.ex. "avgScore").
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -194,6 +202,54 @@ app.MapDelete("/api/tastings/{id:int}", async (int id, Db db) =>
 });
 
 app.MapGet("/api/stats/persons", async (Db db) => Results.Ok(await db.GetPersonStatsAsync()));
+
+// ---------- Loggbok (kvällar ni träffats, med bilder) ----------
+
+app.MapGet("/api/gatherings", async (Db db) => Results.Ok(await db.GetGatheringsAsync()));
+
+app.MapPost("/api/gatherings", async (HttpRequest request, Db db) =>
+{
+    if (!request.HasFormContentType)
+        return Results.BadRequest(new { error = "Formulärdata förväntades." });
+
+    var form = await request.ReadFormAsync();
+
+    if (!DateOnly.TryParse(form["occurredOn"], out var occurredOn))
+        return Results.BadRequest(new { error = "Ange ett giltigt datum." });
+
+    var description = form["description"].ToString();
+
+    var photos = new List<(byte[] Data, string ContentType)>();
+    foreach (var file in form.Files)
+    {
+        if (file.Length == 0)
+            continue;
+        if (file.Length > 8 * 1024 * 1024)
+            return Results.BadRequest(new { error = $"\"{file.FileName}\" är för stor (max 8 MB per bild)." });
+
+        using var ms = new MemoryStream();
+        await file.CopyToAsync(ms);
+        photos.Add((ms.ToArray(), string.IsNullOrWhiteSpace(file.ContentType) ? "image/jpeg" : file.ContentType));
+    }
+
+    var gathering = await db.CreateGatheringAsync(
+        occurredOn,
+        string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+        photos);
+    return Results.Created($"/api/gatherings/{gathering.Id}", gathering);
+});
+
+app.MapGet("/api/gatherings/{gatheringId:int}/photos/{photoId:int}", async (int gatheringId, int photoId, Db db) =>
+{
+    var photo = await db.GetGatheringPhotoAsync(gatheringId, photoId);
+    return photo is null ? Results.NotFound() : Results.File(photo.Data, photo.ContentType);
+});
+
+app.MapDelete("/api/gatherings/{id:int}", async (int id, Db db) =>
+{
+    var deleted = await db.DeleteGatheringAsync(id);
+    return deleted ? Results.NoContent() : Results.NotFound(new { error = "Kvällen hittades inte." });
+});
 
 // SPA-fallback: alla icke-API-routes (t.ex. vid sidladdning på en klientroute) serverar index.html.
 app.MapFallbackToFile("index.html");
