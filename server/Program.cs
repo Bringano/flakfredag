@@ -55,6 +55,11 @@ var app = builder.Build();
 // databas för användare. Sätts via miljövariabler (APP_USERNAME/APP_PASSWORD),
 // aldrig i git. Om de inte är satta alls är skyddet avstängt (t.ex. bekvämt
 // om man kör helt lokalt utan att bry sig).
+//
+// Skyddar bara /api/* (utom health-check) — INTE själva sidan/JS-bundlen.
+// Det gör att frontendens egna lösenords-modal hinner visas innan något
+// kräver inloggning (annars hade webbläsarens fula inloggningsruta dykt
+// upp direkt vid sidladdning, före vår React-app ens hunnit rendera).
 var appUsername = Environment.GetEnvironmentVariable("APP_USERNAME");
 var appPassword = Environment.GetEnvironmentVariable("APP_PASSWORD");
 
@@ -62,9 +67,10 @@ if (!string.IsNullOrEmpty(appUsername) && !string.IsNullOrEmpty(appPassword))
 {
     app.Use(async (context, next) =>
     {
-        // Renders hälsokontroll skickar ingen inloggning — måste vara öppen,
-        // annars tror Render att appen är nere och startar om den i loop.
-        if (context.Request.Path == "/api/health")
+        var path = context.Request.Path;
+        var requiresAuth = path.StartsWithSegments("/api") && path != "/api/health";
+
+        if (!requiresAuth)
         {
             await next();
             return;

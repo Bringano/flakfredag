@@ -6,13 +6,15 @@ import History from "./components/History";
 import PersonStats from "./components/PersonStats";
 import NewTastingForm from "./components/NewTastingForm";
 import { api } from "./api";
+import { AuthRequiredError } from "./auth";
 import type { Beer, Tasting, PersonStat } from "./types";
 
 interface AppProps {
   onBack: () => void;
+  onAuthError: () => void;
 }
 
-export default function App({ onBack }: AppProps) {
+export default function App({ onBack, onAuthError }: AppProps) {
   const [tab, setTab] = useState<Tab>("leaderboard");
   const [beers, setBeers] = useState<Beer[]>([]);
   const [tastings, setTastings] = useState<Tasting[]>([]);
@@ -32,11 +34,15 @@ export default function App({ onBack }: AppProps) {
       setTastings(tastingsData);
       setPersonStats(statsData);
     } catch (err) {
+      if (err instanceof AuthRequiredError) {
+        onAuthError();
+        return;
+      }
       setLoadError(err instanceof Error ? err.message : "Kunde inte hämta data.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onAuthError]);
 
   useEffect(() => {
     loadAll();

@@ -17,6 +17,9 @@ services:
           property: connectionString
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+      # Fylls i manuellt i Render-dashboarden (sync: false = sparas aldrig i git).
+      # APP_USERNAME MÅSTE vara exakt "flakfredag" (hårdkodat i client/src/auth.ts).
+      # APP_PASSWORD är det faktiska lösenordet ni delar med varandra.
       - key: APP_USERNAME
         sync: false
       - key: APP_PASSWORD

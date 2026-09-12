@@ -1,10 +1,19 @@
 import type { Beer, Tasting, PersonStat, NewTastingPayload, UpdateTastingPayload } from "./types";
+import { getAuthHeader, clearAuth, AuthRequiredError } from "./auth";
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const authHeader = getAuthHeader();
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(authHeader ? { Authorization: authHeader } : {})
+    },
     ...options
   });
+  if (res.status === 401) {
+    clearAuth();
+    throw new AuthRequiredError();
+  }
   if (!res.ok) {
     let message = `Fel (${res.status})`;
     try {
