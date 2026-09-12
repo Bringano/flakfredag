@@ -1,18 +1,19 @@
-import type { Beer } from "../types";
+import { useState } from "react";
+import type { Beer, Tasting } from "../types";
+import BeerDetailModal from "./BeerDetailModal";
 
 interface LeaderboardProps {
   beers: Beer[];
+  tastings: Tasting[];
   loading: boolean;
 }
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
-export default function Leaderboard({ beers, loading }: LeaderboardProps) {
-  const ranked = [...beers]
-    .filter((b) => b.ratingCount > 0)
-    .sort((a, b) => b.avgScore - a.avgScore);
+export default function Leaderboard({ beers, tastings, loading }: LeaderboardProps) {
+  const [selectedBeer, setSelectedBeer] = useState<Beer | null>(null);
 
-  const unrated = beers.filter((b) => b.ratingCount === 0);
+  const ranked = [...beers].sort((a, b) => b.avgScore - a.avgScore);
   const maxScore = ranked[0]?.avgScore ?? 10;
 
   if (loading) {
@@ -31,9 +32,11 @@ export default function Leaderboard({ beers, loading }: LeaderboardProps) {
   return (
     <div className="space-y-3 animate-fade-in-up">
       {ranked.map((beer, i) => (
-        <div
+        <button
           key={beer.id}
-          className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5 backdrop-blur-sm"
+          type="button"
+          onClick={() => setSelectedBeer(beer)}
+          className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5 backdrop-blur-sm w-full text-left transition-colors hover:bg-white/[0.07] hover:border-white/20"
         >
           <div
             className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-500/25 to-transparent"
@@ -60,25 +63,11 @@ export default function Leaderboard({ beers, loading }: LeaderboardProps) {
               </p>
             </div>
           </div>
-        </div>
+        </button>
       ))}
 
-      {unrated.length > 0 && (
-        <div className="pt-4">
-          <p className="text-xs uppercase tracking-wide text-amber-50/40 mb-2">
-            Tillagda men inte betygsatta än
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {unrated.map((b) => (
-              <span
-                key={b.id}
-                className="text-sm px-3 py-1 rounded-full bg-white/5 border border-white/10 text-amber-50/60"
-              >
-                {b.name}
-              </span>
-            ))}
-          </div>
-        </div>
+      {selectedBeer && (
+        <BeerDetailModal beer={selectedBeer} tastings={tastings} onClose={() => setSelectedBeer(null)} />
       )}
     </div>
   );

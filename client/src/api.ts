@@ -1,4 +1,4 @@
-import type { Beer, Tasting, PersonStat, NewTastingPayload } from "./types";
+import type { Beer, Tasting, PersonStat, NewTastingPayload, UpdateTastingPayload } from "./types";
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -15,6 +15,9 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     }
     throw new Error(message);
   }
+  if (res.status === 204) {
+    return undefined as T;
+  }
   return res.json() as Promise<T>;
 }
 
@@ -26,5 +29,12 @@ export const api = {
     request<Tasting>("/api/tastings", {
       method: "POST",
       body: JSON.stringify(payload)
-    })
+    }),
+  updateTasting: (id: number, payload: UpdateTastingPayload) =>
+    request<Tasting>(`/api/tastings/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload)
+    }),
+  deleteTasting: (id: number) =>
+    request<void>(`/api/tastings/${id}`, { method: "DELETE" })
 };

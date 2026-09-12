@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { PERSONS } from "../types";
 import type { Beer, Person } from "../types";
 import { api } from "../api";
+import RatingSliders from "./RatingSliders";
 
 interface NewTastingFormProps {
   beers: Beer[];
@@ -85,7 +85,7 @@ export default function NewTastingForm({ beers, onCreated }: NewTastingFormProps
             type="button"
             onClick={() => setMode("existing")}
             disabled={beers.length === 0}
-            className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors disabled:opacity-30 ${
+            className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors disabled:opacity-30 ${
               mode === "existing"
                 ? "bg-amber-500 text-[#1c1410] border-amber-500"
                 : "bg-white/5 border-white/10 text-amber-50/70"
@@ -96,7 +96,7 @@ export default function NewTastingForm({ beers, onCreated }: NewTastingFormProps
           <button
             type="button"
             onClick={() => setMode("new")}
-            className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
+            className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
               mode === "new"
                 ? "bg-amber-500 text-[#1c1410] border-amber-500"
                 : "bg-white/5 border-white/10 text-amber-50/70"
@@ -151,35 +151,7 @@ export default function NewTastingForm({ beers, onCreated }: NewTastingFormProps
         />
       </div>
 
-      <div className="space-y-4">
-        <label className="block text-sm text-amber-50/60">Betyg (1–10)</label>
-        {PERSONS.map((person) => (
-          <div key={person} className="flex items-center gap-4">
-            <span className="w-16 shrink-0 font-medium">{person}</span>
-            <input
-              type="range"
-              min={1}
-              max={10}
-              step={0.1}
-              value={scores[person]}
-              onChange={(e) => updateScore(person, Number(e.target.value))}
-              className="flex-1 accent-amber-500"
-            />
-            <input
-              type="number"
-              min={1}
-              max={10}
-              step={0.1}
-              value={scores[person]}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                if (!Number.isNaN(v)) updateScore(person, Math.min(10, Math.max(1, v)));
-              }}
-              className="w-16 shrink-0 text-center rounded-lg bg-black/30 border border-white/10 py-1.5 text-amber-400 font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500"
-            />
-          </div>
-        ))}
-      </div>
+      <RatingSliders scores={scores} onChange={updateScore} />
 
       {error && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2">{error}</p>}
       {success && (

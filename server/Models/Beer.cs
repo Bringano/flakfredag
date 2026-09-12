@@ -9,5 +9,3 @@ public record Beer(
     int RatingCount,
     DateTime CreatedAt
 );
-
-public record NewBeerRequest(string Name, string? Brewery);

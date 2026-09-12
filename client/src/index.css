@@ -4,12 +4,27 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   background: radial-gradient(ellipse at top, #1c1410 0%, #0c0906 55%, #08050400 100%), #0a0705;
   min-height: 100vh;
+  min-height: 100dvh;
   color: #f5ede0;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Prevent iOS from auto-zooming into 16px+ inputs but keep them tappable */
+input,
+select,
+textarea,
+button {
+  font-size: 16px;
 }
 
 ::-webkit-scrollbar {
@@ -36,4 +51,20 @@ body {
 
 .animate-fade-in-up {
   animation: fade-in-up 0.35s ease-out both;
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.08);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 6s ease-in-out infinite;
 }

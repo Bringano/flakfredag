@@ -8,7 +8,11 @@ import NewTastingForm from "./components/NewTastingForm";
 import { api } from "./api";
 import type { Beer, Tasting, PersonStat } from "./types";
 
-export default function App() {
+interface AppProps {
+  onBack: () => void;
+}
+
+export default function App({ onBack }: AppProps) {
   const [tab, setTab] = useState<Tab>("leaderboard");
   const [beers, setBeers] = useState<Beer[]>([]);
   const [tastings, setTastings] = useState<Tasting[]>([]);
@@ -43,6 +47,16 @@ export default function App() {
   return (
     <div className="min-h-screen px-4 py-8 sm:py-12">
       <div className="max-w-3xl mx-auto space-y-8">
+        <button
+          onClick={onBack}
+          className="group sticky top-[max(0.5rem,env(safe-area-inset-top))] z-10 inline-flex items-center gap-1.5 text-sm text-amber-50/60 hover:text-amber-50 transition-colors"
+        >
+          <span aria-hidden="true" className="transition-transform group-hover:-translate-x-0.5">
+            ←
+          </span>
+          Tillbaka till startsidan
+        </button>
+
         <header className="text-center space-y-2">
           <p className="text-4xl">🍺</p>
           <h1 className="font-display text-3xl sm:text-4xl font-semibold">Ölprovning</h1>
@@ -63,8 +77,8 @@ export default function App() {
         )}
 
         <main>
-          {tab === "leaderboard" && <Leaderboard beers={beers} loading={loading} />}
-          {tab === "history" && <History tastings={tastings} loading={loading} />}
+          {tab === "leaderboard" && <Leaderboard beers={beers} tastings={tastings} loading={loading} />}
+          {tab === "history" && <History tastings={tastings} loading={loading} onChanged={loadAll} />}
           {tab === "stats" && <PersonStats stats={personStats} loading={loading} />}
           {tab === "new" && <NewTastingForm beers={beers} onCreated={loadAll} />}
         </main>

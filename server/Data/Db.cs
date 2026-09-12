@@ -64,31 +64,6 @@ public class Db
         return beers;
     }
 
-    public async Task<Beer> CreateBeerAsync(string name, string? brewery)
-    {
-        const string sql = """
-            INSERT INTO beers (name, brewery)
-            VALUES (@name, @brewery)
-            RETURNING id, name, brewery, created_at;
-            """;
-
-        await using var conn = await _dataSource.OpenConnectionAsync();
-        await using var cmd = new NpgsqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("name", name);
-        cmd.Parameters.AddWithValue("brewery", (object?)brewery ?? DBNull.Value);
-
-        await using var reader = await cmd.ExecuteReaderAsync();
-        await reader.ReadAsync();
-        return new Beer(
-            reader.GetInt32(0),
-            reader.GetString(1),
-            reader.IsDBNull(2) ? null : reader.GetString(2),
-            0,
-            0,
-            reader.GetDateTime(3)
-        );
-    }
-
     // ---------- Tastings ----------
 
     public async Task<List<Tasting>> GetTastingsAsync()
@@ -203,6 +178,105 @@ public class Db
         var avg = ratingsList.Count > 0 ? ratingsList.Average(r => r.Score) : 0;
 
         return new Tasting(tastingId, beerId, beerName, brewery, req.Food, createdAt, avg, ratingsList);
+    }
+
+    // Uppdaterar mat + betyg på en befintlig provning (ölen den tillhör byts inte).
+    // Returnerar null om provningen inte finns.
+    public async Task<Tasting?> UpdateTastingAsync(int id, string food, Dictionary<string, double> scores)
+    {
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var tx = await conn.BeginTransactionAsync();
+
+        const string updateTastingSql = """
+            UPDATE tastings SET food = @food WHERE id = @id RETURNING beer_id, created_at;
+            """;
+        await using var updateCmd = new NpgsqlCommand(updateTastingSql, conn, tx);
+        updateCmd.Parameters.AddWithValue("id", id);
+        updateCmd.Parameters.AddWithValue("food", food);
+
+        int beerId;
+        DateTime createdAt;
+        await using (var reader = await updateCmd.ExecuteReaderAsync())
+        {
+            if (!await reader.ReadAsync())
+                return null;
+            beerId = reader.GetInt32(0);
+            createdAt = reader.GetDateTime(1);
+        }
+
+        const string deleteRatingsSql = "DELETE FROM ratings WHERE tasting_id = @id;";
+        await using (var deleteCmd = new NpgsqlCommand(deleteRatingsSql, conn, tx))
+        {
+            deleteCmd.Parameters.AddWithValue("id", id);
+            await deleteCmd.ExecuteNonQueryAsync();
+        }
+
+        const string insertRatingSql = """
+            INSERT INTO ratings (tasting_id, person, score) VALUES (@tastingId, @person, @score);
+            """;
+        foreach (var (person, score) in scores)
+        {
+            await using var ratingCmd = new NpgsqlCommand(insertRatingSql, conn, tx);
+            ratingCmd.Parameters.AddWithValue("tastingId", id);
+            ratingCmd.Parameters.AddWithValue("person", person);
+            ratingCmd.Parameters.AddWithValue("score", Math.Round(score, 1));
+            await ratingCmd.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+
+        const string beerInfoSql = "SELECT name, brewery FROM beers WHERE id = @id;";
+        await using var beerInfoCmd = new NpgsqlCommand(beerInfoSql, conn);
+        beerInfoCmd.Parameters.AddWithValue("id", beerId);
+        string beerName;
+        string? brewery;
+        await using (var reader = await beerInfoCmd.ExecuteReaderAsync())
+        {
+            await reader.ReadAsync();
+            beerName = reader.GetString(0);
+            brewery = reader.IsDBNull(1) ? null : reader.GetString(1);
+        }
+
+        var ratingsList = scores
+            .Select(kv => new RatingDto(kv.Key, Math.Round(kv.Value, 1)))
+            .ToList();
+        var avg = ratingsList.Count > 0 ? ratingsList.Average(r => r.Score) : 0;
+
+        return new Tasting(id, beerId, beerName, brewery, food, createdAt, avg, ratingsList);
+    }
+
+    // Tar bort en provning. Dess betyg försvinner automatiskt (ON DELETE CASCADE).
+    // Om det var ölens enda provning tas ölen bort också — en öl ska aldrig
+    // kunna finnas kvar obetygsatt i appen.
+    public async Task<bool> DeleteTastingAsync(int id)
+    {
+        await using var conn = await _dataSource.OpenConnectionAsync();
+        await using var tx = await conn.BeginTransactionAsync();
+
+        const string deleteTastingSql = "DELETE FROM tastings WHERE id = @id RETURNING beer_id;";
+        await using var deleteTastingCmd = new NpgsqlCommand(deleteTastingSql, conn, tx);
+        deleteTastingCmd.Parameters.AddWithValue("id", id);
+
+        int beerId;
+        await using (var reader = await deleteTastingCmd.ExecuteReaderAsync())
+        {
+            if (!await reader.ReadAsync())
+                return false;
+            beerId = reader.GetInt32(0);
+        }
+
+        const string deleteOrphanBeerSql = """
+            DELETE FROM beers
+            WHERE id = @beerId AND NOT EXISTS (SELECT 1 FROM tastings WHERE beer_id = @beerId);
+            """;
+        await using (var deleteBeerCmd = new NpgsqlCommand(deleteOrphanBeerSql, conn, tx))
+        {
+            deleteBeerCmd.Parameters.AddWithValue("beerId", beerId);
+            await deleteBeerCmd.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+        return true;
     }
 
     // ---------- Stats ----------

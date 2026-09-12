@@ -31,4 +31,7 @@ public record NewTastingRequest(
     Dictionary<string, double> Scores
 );
 
+// Inkommande data när man redigerar en befintlig provning (mat + betyg — ölen byts inte).
+public record UpdateTastingRequest(string Food, Dictionary<string, double> Scores);
+
 public record PersonStat(string Person, double AvgScore, int Count);

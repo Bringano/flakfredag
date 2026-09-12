@@ -73,16 +73,10 @@ app.UseStaticFiles();
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 
+// Ingen egen "skapa öl"-endpoint: en öl ska aldrig kunna finnas utan minst en
+// betygsatt provning. Nya öl skapas därför bara tillsammans med en provning,
+// se POST /api/tastings nedan.
 app.MapGet("/api/beers", async (Db db) => Results.Ok(await db.GetBeersAsync()));
-
-app.MapPost("/api/beers", async (NewBeerRequest req, Db db) =>
-{
-    if (string.IsNullOrWhiteSpace(req.Name))
-        return Results.BadRequest(new { error = "Ölens namn kan inte vara tomt." });
-
-    var beer = await db.CreateBeerAsync(req.Name.Trim(), string.IsNullOrWhiteSpace(req.Brewery) ? null : req.Brewery!.Trim());
-    return Results.Created($"/api/beers/{beer.Id}", beer);
-});
 
 app.MapGet("/api/tastings", async (Db db) => Results.Ok(await db.GetTastingsAsync()));
 
@@ -110,6 +104,34 @@ app.MapPost("/api/tastings", async (NewTastingRequest req, Db db) =>
 
     var tasting = await db.CreateTastingAsync(req);
     return Results.Created($"/api/tastings/{tasting.Id}", tasting);
+});
+
+app.MapPut("/api/tastings/{id:int}", async (int id, UpdateTastingRequest req, Db db) =>
+{
+    if (string.IsNullOrWhiteSpace(req.Food))
+        return Results.BadRequest(new { error = "Ange vilken mat som åts till." });
+
+    if (req.Scores is null || req.Scores.Count != Persons.All.Length)
+        return Results.BadRequest(new { error = $"Alla tre ({string.Join(", ", Persons.All)}) måste betygsätta." });
+
+    foreach (var person in Persons.All)
+    {
+        if (!req.Scores.TryGetValue(person, out var score))
+            return Results.BadRequest(new { error = $"Saknar betyg för {person}." });
+        if (score < 1 || score > 10)
+            return Results.BadRequest(new { error = $"Betyg måste vara mellan 1 och 10 ({person})." });
+    }
+
+    var updated = await db.UpdateTastingAsync(id, req.Food.Trim(), req.Scores);
+    return updated is null
+        ? Results.NotFound(new { error = "Provningen hittades inte." })
+        : Results.Ok(updated);
+});
+
+app.MapDelete("/api/tastings/{id:int}", async (int id, Db db) =>
+{
+    var deleted = await db.DeleteTastingAsync(id);
+    return deleted ? Results.NoContent() : Results.NotFound(new { error = "Provningen hittades inte." });
 });
 
 app.MapGet("/api/stats/persons", async (Db db) => Results.Ok(await db.GetPersonStatsAsync()));

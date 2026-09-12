@@ -39,3 +39,8 @@ export interface NewTastingPayload {
   food: string;
   scores: Record<Person, number>;
 }
+
+export interface UpdateTastingPayload {
+  food: string;
+  scores: Record<Person, number>;
+}
