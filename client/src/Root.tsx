@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Landing from "./components/Landing";
 import PasswordModal from "./components/PasswordModal";
+import BackgroundDecor from "./components/BackgroundDecor";
 import App from "./App";
 import { clearAuth, hasStoredAuth } from "./auth";
 
@@ -60,6 +61,8 @@ export default function Root() {
 
   return (
     <>
+      <BackgroundDecor />
+
       {started ? (
         <App onBack={handleBack} onAuthError={handleAuthError} />
       ) : (

@@ -8,3 +8,6 @@ client/dist/
 # .NET build output
 server/bin/
 server/obj/
+
+# Lokal testdata för att seeda databasen manuellt (docker compose exec db psql ...)
+seed-data.sql

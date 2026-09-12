@@ -180,9 +180,11 @@ public class Db
         return new Tasting(tastingId, beerId, beerName, brewery, req.Food, createdAt, avg, ratingsList);
     }
 
-    // Uppdaterar mat + betyg på en befintlig provning (ölen den tillhör byts inte).
+    // Uppdaterar mat + betyg på en befintlig provning, samt namn/bryggeri på
+    // ölen den tillhör (påverkar alla provningar av samma öl, eftersom namnet
+    // hör till öl-raden och delas mellan dem).
     // Returnerar null om provningen inte finns.
-    public async Task<Tasting?> UpdateTastingAsync(int id, string food, Dictionary<string, double> scores)
+    public async Task<Tasting?> UpdateTastingAsync(int id, string food, Dictionary<string, double> scores, string beerName, string? brewery)
     {
         await using var conn = await _dataSource.OpenConnectionAsync();
         await using var tx = await conn.BeginTransactionAsync();
@@ -202,6 +204,15 @@ public class Db
                 return null;
             beerId = reader.GetInt32(0);
             createdAt = reader.GetDateTime(1);
+        }
+
+        const string updateBeerSql = "UPDATE beers SET name = @name, brewery = @brewery WHERE id = @beerId;";
+        await using (var updateBeerCmd = new NpgsqlCommand(updateBeerSql, conn, tx))
+        {
+            updateBeerCmd.Parameters.AddWithValue("beerId", beerId);
+            updateBeerCmd.Parameters.AddWithValue("name", beerName);
+            updateBeerCmd.Parameters.AddWithValue("brewery", (object?)brewery ?? DBNull.Value);
+            await updateBeerCmd.ExecuteNonQueryAsync();
         }
 
         const string deleteRatingsSql = "DELETE FROM ratings WHERE tasting_id = @id;";
@@ -225,18 +236,7 @@ public class Db
 
         await tx.CommitAsync();
 
-        const string beerInfoSql = "SELECT name, brewery FROM beers WHERE id = @id;";
-        await using var beerInfoCmd = new NpgsqlCommand(beerInfoSql, conn);
-        beerInfoCmd.Parameters.AddWithValue("id", beerId);
-        string beerName;
-        string? brewery;
-        await using (var reader = await beerInfoCmd.ExecuteReaderAsync())
-        {
-            await reader.ReadAsync();
-            beerName = reader.GetString(0);
-            brewery = reader.IsDBNull(1) ? null : reader.GetString(1);
-        }
-
+        // beerName/brewery är redan de värden vi precis skrev till beers-raden ovan.
         var ratingsList = scores
             .Select(kv => new RatingDto(kv.Key, Math.Round(kv.Value, 1)))
             .ToList();

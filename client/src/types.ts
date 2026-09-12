@@ -43,4 +43,6 @@ export interface NewTastingPayload {
 export interface UpdateTastingPayload {
   food: string;
   scores: Record<Person, number>;
+  beerName: string;
+  brewery?: string;
 }

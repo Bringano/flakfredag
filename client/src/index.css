@@ -68,3 +68,32 @@ button {
 .animate-glow-pulse {
   animation: glow-pulse 6s ease-in-out infinite;
 }
+
+@keyframes bubble-rise {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-100vh) scale(1.4);
+    opacity: 0;
+  }
+}
+
+.animate-bubble-rise {
+  animation: bubble-rise linear infinite;
+}
+
+/* Respektera "minska rörelse" — stäng av dekorativa loop-animationer helt. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-bubble-rise,
+  .animate-glow-pulse {
+    animation: none;
+  }
+}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { PERSONS } from "../types";
 import type { Person, Tasting } from "../types";
 import { api } from "../api";
@@ -11,6 +12,8 @@ interface EditTastingModalProps {
 }
 
 export default function EditTastingModal({ tasting, onClose, onSaved }: EditTastingModalProps) {
+  const [beerName, setBeerName] = useState(tasting.beerName);
+  const [brewery, setBrewery] = useState(tasting.brewery ?? "");
   const [food, setFood] = useState(tasting.food ?? "");
   const [scores, setScores] = useState<Record<Person, number>>(() => {
     const initial = {} as Record<Person, number>;
@@ -38,6 +41,11 @@ export default function EditTastingModal({ tasting, onClose, onSaved }: EditTast
     e.preventDefault();
     setError(null);
 
+    if (beerName.trim() === "") {
+      setError("Ange ölens namn.");
+      return;
+    }
+
     if (food.trim() === "") {
       setError("Ange vilken mat som åts till.");
       return;
@@ -45,7 +53,12 @@ export default function EditTastingModal({ tasting, onClose, onSaved }: EditTast
 
     setSubmitting(true);
     try {
-      await api.updateTasting(tasting.id, { food: food.trim(), scores });
+      await api.updateTasting(tasting.id, {
+        food: food.trim(),
+        scores,
+        beerName: beerName.trim(),
+        brewery: brewery.trim() || undefined
+      });
       onSaved();
       onClose();
     } catch (err) {
@@ -55,7 +68,11 @@ export default function EditTastingModal({ tasting, onClose, onSaved }: EditTast
     }
   }
 
-  return (
+  // Porta till document.body: annars hamnar modalen som barn av historikens
+  // .animate-fade-in-up-container, vars transform (från animationen) gör den
+  // till referenspunkt för "fixed" istället för viewporten — modalen centreras
+  // då mitt i hela tabellens höjd, inte mitt på skärmen.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-8"
       onClick={onClose}
@@ -66,10 +83,7 @@ export default function EditTastingModal({ tasting, onClose, onSaved }: EditTast
         className="w-full max-w-md max-h-full overflow-y-auto rounded-2xl border border-white/10 bg-[#15100c] p-5 sm:p-6 space-y-5 animate-fade-in-up"
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="font-display text-xl truncate">{tasting.beerName}</p>
-            {tasting.brewery && <p className="text-sm text-amber-50/40 truncate">{tasting.brewery}</p>}
-          </div>
+          <p className="font-display text-xl">Redigera provning</p>
           <button
             type="button"
             onClick={onClose}
@@ -78,6 +92,29 @@ export default function EditTastingModal({ tasting, onClose, onSaved }: EditTast
           >
             ✕
           </button>
+        </div>
+
+        <div>
+          <label className="block text-sm text-amber-50/60 mb-2">Namn på öl</label>
+          <input
+            type="text"
+            value={beerName}
+            onChange={(e) => setBeerName(e.target.value)}
+            className="w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2.5 text-amber-50 placeholder:text-amber-50/30 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          />
+          <p className="mt-1.5 text-xs text-amber-50/40">
+            Ändras här ändras namnet på alla provningar av samma öl.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm text-amber-50/60 mb-2">Bryggeri (valfritt)</label>
+          <input
+            type="text"
+            value={brewery}
+            onChange={(e) => setBrewery(e.target.value)}
+            className="w-full rounded-xl bg-black/30 border border-white/10 px-3 py-2.5 text-amber-50 placeholder:text-amber-50/30 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          />
         </div>
 
         <div>
@@ -113,6 +150,7 @@ export default function EditTastingModal({ tasting, onClose, onSaved }: EditTast
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }

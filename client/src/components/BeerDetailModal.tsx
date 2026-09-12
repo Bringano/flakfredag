@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { PERSONS } from "../types";
 import type { Beer, Tasting } from "../types";
 
@@ -36,7 +37,11 @@ export default function BeerDetailModal({ beer, tastings, onClose }: BeerDetailM
     .filter((t) => t.beerId === beer.id)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  return (
+  // Porta till document.body: annars hamnar modalen som barn av listans
+  // .animate-fade-in-up-container, vars transform (från animationen) gör den
+  // till referenspunkt för "fixed" istället för viewporten — modalen centreras
+  // då mitt i hela listans höjd, inte mitt på skärmen.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
@@ -92,6 +97,7 @@ export default function BeerDetailModal({ beer, tastings, onClose }: BeerDetailM
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { verifyPassword } from "../auth";
 
 interface PasswordModalProps {
@@ -39,7 +40,9 @@ export default function PasswordModal({ onSuccess, onClose }: PasswordModalProps
     }
   }
 
-  return (
+  // Porta till document.body så positioneringen alltid är konsekvent, samma
+  // som övriga modaler (se BeerDetailModal/EditTastingModal).
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
@@ -76,6 +79,7 @@ export default function PasswordModal({ onSuccess, onClose }: PasswordModalProps
           {submitting ? "Kontrollerar…" : "Fortsätt"}
         </button>
       </form>
-    </div>
+    </div>,
+    document.body
   );
 }

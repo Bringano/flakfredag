@@ -167,6 +167,9 @@ app.MapPut("/api/tastings/{id:int}", async (int id, UpdateTastingRequest req, Db
     if (string.IsNullOrWhiteSpace(req.Food))
         return Results.BadRequest(new { error = "Ange vilken mat som åts till." });
 
+    if (string.IsNullOrWhiteSpace(req.BeerName))
+        return Results.BadRequest(new { error = "Ange ölens namn." });
+
     if (req.Scores is null || req.Scores.Count != Persons.All.Length)
         return Results.BadRequest(new { error = $"Alla tre ({string.Join(", ", Persons.All)}) måste betygsätta." });
 
@@ -178,7 +181,7 @@ app.MapPut("/api/tastings/{id:int}", async (int id, UpdateTastingRequest req, Db
             return Results.BadRequest(new { error = $"Betyg måste vara mellan 1 och 10 ({person})." });
     }
 
-    var updated = await db.UpdateTastingAsync(id, req.Food.Trim(), req.Scores);
+    var updated = await db.UpdateTastingAsync(id, req.Food.Trim(), req.Scores, req.BeerName.Trim(), string.IsNullOrWhiteSpace(req.Brewery) ? null : req.Brewery.Trim());
     return updated is null
         ? Results.NotFound(new { error = "Provningen hittades inte." })
         : Results.Ok(updated);
