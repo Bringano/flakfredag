@@ -26,7 +26,7 @@ export default function Landing({ onStart }: { onStart: () => void }) {
           onClick={onStart}
           className="group mt-12 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 px-8 py-4 text-base sm:text-lg font-semibold text-amber-950 shadow-[0_0_40px_-10px_rgba(217,119,6,0.8)] transition duration-300 hover:shadow-[0_0_55px_-6px_rgba(217,119,6,0.9)] hover:scale-105 active:scale-95"
         >
-          Let&apos;s start FlakFredag
+          Let&apos;s start Flak
           <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
         </button>
       </div>
