@@ -1,9 +1,3 @@
-databases:
-  - name: olprovning-db
-    plan: free
-    databaseName: beerapp
-    user: beerapp
-
 services:
   - type: web
     name: olprovning
@@ -11,10 +5,10 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
+      # Databasen ligger på Neon (Renders gratis-Postgres raderas efter 30 dagar).
+      # Connection string fylls i manuellt i Render-dashboarden.
       - key: DATABASE_URL
-        fromDatabase:
-          name: olprovning-db
-          property: connectionString
+        sync: false
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
       # Fylls i manuellt i Render-dashboarden (sync: false = sparas aldrig i git).
